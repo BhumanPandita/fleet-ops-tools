@@ -1,0 +1,15 @@
+# Data files (large / potentially sensitive)
+*.xlsx
+*.xls
+*.pkl
+*.parquet
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
