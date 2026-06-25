@@ -22,9 +22,27 @@ Filters Labour Cost rows → embeds → clusters → exports Excel.
 python3 mro_task_clustering.py
 ```
 
-Output: `MRO_Labour_Task_Clusters.xlsx` with two sheets:
+Output: `MRO_Labour_Task_Clusters.xlsx` with four sheets:
+- `Search Clusters` / `Search Rows` — front-of-file keyword search sheets (see below)
 - `Cluster Summary` — one row per cluster, min/mean/max man hours, Tail + Card/WO of the minimum row
 - `All Labour Rows` — original rows with `cluster_id` and `cluster_label` appended
+
+### `excel_search.py` — order-independent keyword search built into the Excel
+For the ground team who work straight off the Excel file (no laptop / localhost).
+`add_search_sheet()` inserts a sheet with one yellow input cell: typing keywords in
+**any order** (e.g. `cockpit glass broken`) spills the matching rows below — it finds
+`GLASS BROKEN IN COCKPIT` regardless of word order. Requires Excel 365 / 2021+
+(uses `FILTER` + `TEXTSPLIT` + `BYROW` + `LAMBDA`).
+
+Match logic: `TEXTSPLIT` the typed text on spaces → each keyword checked with
+`ISNUMBER(SEARCH(kw, Description))` (case-insensitive, substring) → a row matches only
+when `AND` of all keywords is true. `save_output()` calls this for both data sheets.
+
+Implementation note: openpyxl stores modern functions with internal prefixes
+(`_xlfn._xlws.FILTER`, `_xlfn.TEXTSPLIT`, `_xlfn.BYROW`, `_xlfn.LAMBDA` + `_xlpm.` params)
+or Excel shows `#NAME?`. Excel displays the clean names to the user. To add the search
+sheets to an already-generated workbook without re-clustering, load it with openpyxl and
+call `add_search_sheet()` directly (no need to re-run embeddings).
 
 ### `cluster_explorer.py` — interactive Dash app (preferred)
 Full dashboard: UMAP scatter map + click-to-inspect cluster panel + search.

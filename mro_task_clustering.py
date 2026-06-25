@@ -157,6 +157,8 @@ def aggregate_results(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def save_output(summary: pd.DataFrame, detailed: pd.DataFrame, path: str) -> None:
+    from excel_search import add_search_sheet
+
     print(f"\nSaving results to '{path}' …")
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         summary.to_excel(writer, sheet_name="Cluster Summary", index=False)
@@ -167,6 +169,28 @@ def save_output(summary: pd.DataFrame, detailed: pd.DataFrame, path: str) -> Non
         for col in ws.columns:
             max_len = max((len(str(cell.value)) for cell in col if cell.value), default=10)
             ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 60)
+
+        # ── Order-independent keyword search sheets (for the ground team) ──────
+        # Inserted at the front so the file opens on a search box.
+        add_search_sheet(
+            writer.book,
+            title="Search Rows",
+            src_sheet="All Labour Rows",
+            headers=list(detailed.columns),
+            search_col_name="Description",
+            blurb="Searches every labour row — trace a match back via Tail + Card/WO.",
+            n_data_rows=len(detailed),
+        )
+        add_search_sheet(
+            writer.book,
+            title="Search Clusters",
+            src_sheet="Cluster Summary",
+            headers=list(summary.columns),
+            search_col_name="Cluster Label",
+            tab_color="70AD47",
+            blurb="Searches the cluster names to find a task group and its min man hours.",
+            n_data_rows=len(summary),
+        )
 
     print(f"Done. Output: {path}")
 
