@@ -106,15 +106,22 @@ def add_search_sheet(
     box_ref = f"${INPUT_CELL[0]}${INPUT_CELL[1:]}"          # B3 -> $B$3
     no_match = "No matches — try fewer or different keywords"
     empty_msg = "← Type keywords (any order) in the yellow box above"
+    # BYROW+LAMBDA can return a horizontal boolean array, causing FILTER to
+    # filter columns instead of rows (only column A shows up). MMULT is safer:
+    # SEARCH(1×n_kw keywords, m×1 desc) → m×n_kw hit matrix
+    # ISNUMBER*1 → 0/1 matrix
+    # MMULT(m×n_kw, n_kw×1 ones) → m×1 keyword-count column
+    # compare to n_kw → m×1 boolean for FILTER (TRUE = all keywords found)
+    kw_count = f'COLUMNS(_xlfn.TEXTSPLIT(TRIM({box_ref})," "))'
     formula = (
         f'=IF(TRIM({box_ref})="","{empty_msg}",'
         f'_xlfn._xlws.FILTER('
         f'{src}!A2:{last_col}{last_row},'
-        f'_xlfn.BYROW('
-        f'ISNUMBER(SEARCH('
-        f'_xlfn.TEXTSPLIT(TRIM({box_ref})," "),'
-        f'{src}!{search_col}2:{search_col}{last_row})),'
-        f'_xlfn.LAMBDA(_xlpm.r,AND(_xlpm.r))),'
+        f'MMULT('
+        f'ISNUMBER(SEARCH(_xlfn.TEXTSPLIT(TRIM({box_ref})," "),'
+        f'{src}!{search_col}2:{search_col}{last_row}))*1,'
+        f'_xlfn.SEQUENCE({kw_count},1,1,0)'
+        f')={kw_count},'
         f'"{no_match}"))'
     )
     ws.cell(row=DATA_ROW, column=1, value=formula)
