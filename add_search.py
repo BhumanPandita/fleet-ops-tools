@@ -23,12 +23,14 @@ def _headers(ws):
 
 
 def _data_rows(ws):
-    n = 0
-    for (cell,) in ws.iter_rows(min_row=2, max_col=1):
-        if cell.value is None:
+    # Scan from the bottom to find the last row that has any data,
+    # ignoring blank cells anywhere in the middle of the sheet.
+    last = ws.max_row
+    while last > 1:
+        if any(c.value is not None for c in ws[last]):
             break
-        n += 1
-    return n
+        last -= 1
+    return last - 1  # subtract the header row
 
 
 def main(path: str) -> None:
