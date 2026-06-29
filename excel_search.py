@@ -106,22 +106,22 @@ def add_search_sheet(
     box_ref = f"${INPUT_CELL[0]}${INPUT_CELL[1:]}"          # B3 -> $B$3
     no_match = "No matches — try fewer or different keywords"
     empty_msg = "← Type keywords (any order) in the yellow box above"
-    # BYROW+LAMBDA can return a horizontal boolean array, causing FILTER to
-    # filter columns instead of rows (only column A shows up). MMULT is safer:
-    # SEARCH(1×n_kw keywords, m×1 desc) → m×n_kw hit matrix
-    # ISNUMBER*1 → 0/1 matrix
-    # MMULT(m×n_kw, n_kw×1 ones) → m×1 keyword-count column
-    # compare to n_kw → m×1 boolean for FILTER (TRUE = all keywords found)
-    kw_count = f'COLUMNS(_xlfn.TEXTSPLIT(TRIM({box_ref})," "))'
+    # BYROW and MMULT both rely on SEARCH broadcasting a 1×n_kw keyword array
+    # against a m×1 description column into a m×n_kw matrix — this is unreliable
+    # in Excel and returns wrong dimensions (only column A shows up in results).
+    #
+    # REDUCE processes keywords one at a time as scalars:
+    #   SEARCH(scalar_kw, m×1_desc) → m×1   (no 2D broadcasting needed)
+    #   acc (starts TRUE=1) * m×1 → m×1     (element-wise multiply)
+    # Final result: m×1 boolean — TRUE only where ALL keywords were found.
     formula = (
         f'=IF(TRIM({box_ref})="","{empty_msg}",'
         f'_xlfn._xlws.FILTER('
         f'{src}!A2:{last_col}{last_row},'
-        f'MMULT('
-        f'ISNUMBER(SEARCH(_xlfn.TEXTSPLIT(TRIM({box_ref})," "),'
-        f'{src}!{search_col}2:{search_col}{last_row}))*1,'
-        f'_xlfn.SEQUENCE({kw_count},1,1,0)'
-        f')={kw_count},'
+        f'_xlfn.REDUCE(TRUE,_xlfn.TEXTSPLIT(TRIM({box_ref})," "),'
+        f'_xlfn.LAMBDA(_xlpm.a,_xlpm.k,'
+        f'_xlpm.a*ISNUMBER(SEARCH(_xlpm.k,'
+        f'{src}!{search_col}2:{search_col}{last_row})))),'
         f'"{no_match}"))'
     )
     ws.cell(row=DATA_ROW, column=1, value=formula)
