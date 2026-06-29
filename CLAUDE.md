@@ -30,19 +30,29 @@ Output: `MRO_Labour_Task_Clusters.xlsx` with four sheets:
 ### `excel_search.py` — order-independent keyword search built into the Excel
 For the ground team who work straight off the Excel file (no laptop / localhost).
 `add_search_sheet()` inserts a sheet with one yellow input cell: typing keywords in
-**any order** (e.g. `cockpit glass broken`) spills the matching rows below — it finds
-`GLASS BROKEN IN COCKPIT` regardless of word order. Requires Excel 365 / 2021+
-(uses `FILTER` + `TEXTSPLIT` + `BYROW` + `LAMBDA`).
+**any order** (e.g. `cockpit glass broken`) shows the matching rows below — it finds
+`GLASS BROKEN IN COCKPIT` regardless of word order. Results update live as you type.
+Requires Excel 365 / 2021+ (uses `TEXTSPLIT`).
 
-Match logic: `TEXTSPLIT` the typed text on spaces → each keyword checked with
-`ISNUMBER(SEARCH(kw, Description))` (case-insensitive, substring) → a row matches only
-when `AND` of all keywords is true. `save_output()` calls this for both data sheets.
+**Do NOT use FILTER / dynamic-array formulas here.** openpyxl cannot write the OOXML
+metadata that marks a formula as a true dynamic array, so Excel adds implicit-
+intersection `@` operators on open (`=@IF`, `@SEARCH`, `@range`) which collapse every
+array to one cell → `#VALUE!` or a single result. FILTER/REDUCE/BYROW/MMULT all failed
+this way. The working design avoids dynamic arrays entirely:
 
-Implementation note: openpyxl stores modern functions with internal prefixes
-(`_xlfn._xlws.FILTER`, `_xlfn.TEXTSPLIT`, `_xlfn.BYROW`, `_xlfn.LAMBDA` + `_xlpm.` params)
-or Excel shows `#NAME?`. Excel displays the clean names to the user. To add the search
-sheets to an already-generated workbook without re-clustering, load it with openpyxl and
-call `add_search_sheet()` directly (no need to re-run embeddings).
+- Two **hidden helper columns** on each data sheet: `__match` (1/0 per row, written as a
+  legacy **array/CSE** `SUMPRODUCT` formula so `TEXTSPLIT` evaluates in array context
+  without `@`) and `__rank` (running count among matches).
+- The search sheet has a fixed block of `RESULT_SLOTS` (1000) result rows, each a plain
+  `INDEX/MATCH` that pulls the i-th matching row by `__rank`. Plain per-row formulas are
+  never broken by `@`.
+
+Match logic: `SUMPRODUCT(--ISNUMBER(SEARCH(TEXTSPLIT(keywords), Description))) =
+COLUMNS(TEXTSPLIT(keywords))` — every typed keyword found, case-insensitive, any order.
+`save_output()` calls this for both data sheets. `TEXTSPLIT` needs the `_xlfn.` prefix
+in storage or Excel shows `#NAME?`. To add the search sheets to an already-generated
+workbook without re-clustering, run `python3 add_search.py "File.xlsx"` (idempotent —
+`strip_helper_columns()` removes old helpers before re-adding).
 
 ### `cluster_explorer.py` — interactive Dash app (preferred)
 Full dashboard: UMAP scatter map + click-to-inspect cluster panel + search.
