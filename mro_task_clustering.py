@@ -118,6 +118,7 @@ def aggregate_results(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     for cluster_id, grp in df.groupby("cluster_id"):
         min_idx   = grp["Man Hour / Qty"].idxmin()
         min_row   = grp.loc[min_idx]
+        min_mh    = grp["Man Hour / Qty"].min()
         mro_min = (
             grp.groupby("MRO")["Man Hour / Qty"].min()
             .sort_values()
@@ -130,7 +131,11 @@ def aggregate_results(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             "Task Count":           len(grp),
             "Unique Descriptions":  grp["description_clean"].nunique(),
             "MROs Present":         ", ".join(sorted(grp["MRO"].dropna().unique())),
-            "Min Man Hours":        grp["Man Hour / Qty"].min(),
+            "Min Man Hours":        min_mh,
+            # Negotiation window: start low (Min − 40%) and settle no higher
+            # than Min − 15%.
+            "Negotiation Start (Min −40%)": round(min_mh * 0.60, 2),
+            "Negotiation End (Min −15%)":   round(min_mh * 0.85, 2),
             "Mean Man Hours":       round(grp["Man Hour / Qty"].mean(), 2),
             "Max Man Hours":        grp["Man Hour / Qty"].max(),
             "Min MH — MRO":         min_row["MRO"],
