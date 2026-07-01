@@ -158,6 +158,33 @@ def aggregate_results(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def save_output(summary: pd.DataFrame, detailed: pd.DataFrame, path: str) -> None:
     from excel_search import add_search_sheet
+    from openpyxl.utils import get_column_letter
+
+    # Columns to KEEP (in this order) on the "All Labour Rows" sheet — the rest
+    # are still written but hidden, so the ground team see a lean view.
+    ALR_KEEP = [
+        "cluster_id",       # Cluster Id
+        "Tail",
+        "MRO",
+        "cluster_label",    # Cluster Label
+        "Description",
+        "Man Hour / Qty",   # Man Hours
+        "Amount $",         # Amount
+        "Labor rate",       # Labor Rate
+    ]
+    # Columns to hide on the "Search Clusters" search sheet.
+    SC_HIDE = [
+        "Task Count",
+        "Unique Descriptions",
+        "Mean Man Hours",
+        "Min MH — Card/WO",
+        "Min MH — Sheet Ref",
+    ]
+
+    # Reorder detailed so the kept columns come first (kept order), rest after.
+    ordered = [c for c in ALR_KEEP if c in detailed.columns]
+    rest    = [c for c in detailed.columns if c not in ordered]
+    detailed = detailed[ordered + rest]
 
     print(f"\nSaving results to '{path}' …")
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
@@ -191,6 +218,26 @@ def save_output(summary: pd.DataFrame, detailed: pd.DataFrame, path: str) -> Non
             blurb="Searches the cluster names to find a task group and its min man hours.",
             n_data_rows=len(summary),
         )
+
+        # ── Visual tidy-up for the ground team ────────────────────────────────
+        # Hide the sheets they don't need to open directly.
+        for name in ("Search Rows", "Cluster Summary"):
+            writer.book[name].sheet_state = "hidden"
+
+        # Search Clusters: hide the non-essential summary columns.
+        sc_ws   = writer.book["Search Clusters"]
+        sum_cols = list(summary.columns)
+        for name in SC_HIDE:
+            if name in sum_cols:
+                sc_ws.column_dimensions[
+                    get_column_letter(sum_cols.index(name) + 1)
+                ].hidden = True
+
+        # All Labour Rows: hide every column after the kept block. Helper
+        # columns (__match/__rank) are already hidden by add_search_sheet.
+        alr_ws = writer.book["All Labour Rows"]
+        for idx in range(len(ordered) + 1, len(detailed.columns) + 1):
+            alr_ws.column_dimensions[get_column_letter(idx)].hidden = True
 
     print(f"Done. Output: {path}")
 
