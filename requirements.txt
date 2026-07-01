@@ -1,0 +1,20 @@
+# IndiGo MRO task-clustering pipeline dependencies.
+# Install:  pip3 install -r requirements.txt
+# (on this macOS system add --break-system-packages if pip refuses due to PEP 668)
+
+# Core data handling
+pandas==3.0.2
+numpy==2.4.4
+openpyxl==3.1.5          # Excel read/write (search sheets, hidden cols)
+scipy==1.17.1
+scikit-learn==1.8.0      # AgglomerativeClustering
+
+# Embeddings
+sentence-transformers==5.4.1
+torch==2.11.0
+
+# Interactive explorer / static map (cluster_explorer.py, visualize_clusters.py)
+umap-learn==0.5.12
+plotly==6.8.0
+dash==4.3.0
+pyarrow==24.0.0          # fast pickle/parquet caching
